@@ -29,7 +29,7 @@ V5 = sym.Symbol('V5')
 V6 = sym.Symbol('V6')
 
 
-Dt = At
+# Dt = At
 Tj = At/Jm
 Tjd = Dt/Jm
 
@@ -76,10 +76,10 @@ X6 = X5 + V5*Tjd + s2*Dt*Tjd**2/2 - s2*Jm*Tjd**3/6
 print(sym.simplify(X6))
 
 
-# eq = sym.Eq(V3,Vt)
-# eq2 = sym.Eq(V6,0)
-# print(sym.solve(eq,Ta))
-# print(sym.solve(eq2,Td))
+eq = sym.Eq(V3,Vt)
+eq2 = sym.Eq(V6,0)
+print(sym.solve(eq,Ta))
+print(sym.solve(eq2,Td))
 
 
 eq2 = sym.Eq(V6,0)
