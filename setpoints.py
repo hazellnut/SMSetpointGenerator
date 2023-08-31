@@ -50,11 +50,11 @@ Tjd = Dt/Jm
 
 
 s1 =1
-s2 =1
+s2 =-1
 
 # V0 = 0
 Ta = -At/Jm - V0/At + Vt/At
-Td = -Dt/Jm - Vt/Dt
+Td = -Dt/Jm + Vt/Dt
 
 
 V1 = V0 + s1*Jm*Tj**2/2
