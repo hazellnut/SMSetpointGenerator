@@ -86,7 +86,7 @@ def case_4_dx():
     pass
 
 
-def generate_profile(Tj, Tjd, Ta, Td,Tv, At,Dt,Vt,Jm, move_case, V0,t_step = 0.002):
+def generate_profile(Tj, Tjd, Ta, Td,Tv, At,Dt,Vt,Jm, move_case, V0,t_step = 0.0001):
     Xc = 0
     Vc = V0
     Ac =0
@@ -106,7 +106,7 @@ def generate_profile(Tj, Tjd, Ta, Td,Tv, At,Dt,Vt,Jm, move_case, V0,t_step = 0.0
         s1 = -1
         s2 = 1
     elif move_case == 4:
-        s1 = 1,
+        s1 = 1
         s2 = 1
 
     Jc =0
@@ -120,40 +120,69 @@ def generate_profile(Tj, Tjd, Ta, Td,Tv, At,Dt,Vt,Jm, move_case, V0,t_step = 0.0
     T6 = T5 + Td
     T7 = T6 + Tjd
     Dx = 0
-    while t <= T7:
+    Dx1 =0
+    Dx2 =0
+    Dx3=0
+    Dx4=0
+    Dx5 =0
+    Dx6=0
+    Dx7=0
+    Ac_old = 0
+    Vc_old = 0
+    while t <= T7 + 0.5:
         if t < T1:
             Jc = s1*Jm
-            Ac = s1*At*(t/(T2-T1))
+            Ac = s1*At*(t/(T1))
             #Ac = s1*Jm*t_step
         elif t < T2:
-            Jc = 0
+            Jc = (s1*At-Ac_old)/t_step
             Ac = s1*At
         elif t < T3:
             Jc = -s1*Jm
-            Ac = s1*At*((t-T2)/(T3-T2))
+            Ac = s1*At*((T3-t)/(T3-T2))
         elif t< T4:
-            Jc = 0
+            Jc = (-Ac_old)/t_step
             Ac =0
             Vc = Vt
             #Xc += Vc*t_step
-            Dx += Vc*t_step
+            #Dx2 += Vc*t_step
         elif t< T5:
             Jc = s2*Jm
-            Ac += s2*Jm*t_step
+            Ac = s2*Dt*(t-T4)/(T5-T4)
         elif t < T6:
-            Jc =0
+            Jc = (s2*Dt-Ac_old)/t_step
             Ac = s2*Dt
-        elif t <= T7:
+        elif t < T7:
             Jc = -s2*Jm
-            Ac += Jc*t_step
+            Ac = s2*Dt*((T7-t)/(T7-T6))
         else:
-            Jc = 0
+            Jc = (-Ac_old)/t_step
             Ac = 0
             Vc = 0
 
-        Vc += Ac*t_step + 0.5*Jc*t_step**2
-        Xc += Vc*t_step + 0.5*Ac*t_step**2 + (1.0/6.0)*Jc*t_step**3
+        Vc += Ac_old*t_step + 0.5*Jc*t_step**2
+        dx = Vc_old*t_step + 0.5*Ac_old*t_step**2 + (1.0/6.0)*Jc*t_step**3
+        Xc += dx
 
+        if t > T1:
+            Dx1 += dx
+        elif t<T2:
+            Dx2 += dx
+        elif t<T3:
+            Dx3 += dx
+        elif t < T4:
+            Dx4 +=dx
+        elif t<T5:
+            Dx5+=Dx
+        elif t<T6:
+            Dx6+=Dx
+        elif t<T7:
+            Dx7+=Dx
+
+        
+        
+        Ac_old = Ac
+        Vc_old = Vc
         
         X.append(Xc)
         V.append(Vc)
@@ -161,20 +190,44 @@ def generate_profile(Tj, Tjd, Ta, Td,Tv, At,Dt,Vt,Jm, move_case, V0,t_step = 0.0
         J.append(Jc)
         t+= t_step
         T.append(t)
-    print(f"Dx = {Dx}")
+    print(f"Dx1, Dx2 : {Dx1}, {Dx2}")
     return (X,V,A,J,T)
 
-def plot_profile(X,V,A,J,T):
+def plot_profile(X,V,A,J,T, desc_string="test"):
+    f = plt.figure(figsize=(10,8))
+    f.suptitle(desc_string)
+    #f.set_tight_layout('h_pad')
+
     sub = plt.subplot(4,1,1)
     sub.plot(T,X)
+    sub.set_title("X")
+    sub.set_ylabel("Position (mm)")
+    sub.set_xlabel("Time (s)")
+
+    f.add_axes(sub)
 
     sub = plt.subplot(4,1,2)
     sub.plot(T,V)
+    sub.set_title("V")
+    sub.set_ylabel("Velocity (mm/s)")
+    sub.set_xlabel("Time (s)")
 
+
+    f.add_axes(sub)
     sub = plt.subplot(4,1,3)
     sub.plot(T,A)
+    sub.set_title("A")
+    sub.set_ylabel("Acceleration (mm/s/s)")
+    sub.set_xlabel("Time (s)")
 
+    f.add_axes(sub)
     sub = plt.subplot(4,1,4)
     sub.plot(T,J)
+    sub.set_title("J")
+    sub.set_ylabel("Jerk (mm/s/s/s)")
+    sub.set_xlabel("Time (s)")
+
+    f.add_axes(sub)
+    f.subplots_adjust(wspace=1,hspace=1)
 
     plt.show()
