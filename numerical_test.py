@@ -5,13 +5,15 @@ DEBUG = True
 
 
 def run_numerical_test(V0,At,Dt,Xt,VtIn,Jm):
-    if VtIn < 0:
-        if V0 < VtIn:
+
+    case_switches = 0
+    if Xt < 0:
+        if V0 < -abs(VtIn):
             case = 4
         else:
             case = 3
     else:
-        if V0 > VtIn:
+        if V0 > abs(VtIn):
             case = 2
         else:
             case=1
@@ -22,12 +24,15 @@ def run_numerical_test(V0,At,Dt,Xt,VtIn,Jm):
     #process- are our accel values within reason for the current velo?
     Vtrestrict = 0
 
-
     At = min(At,math.sqrt(Jm*abs(VtIn-V0)))
     Dt = min(Dt, math.sqrt(Jm*abs(VtIn)))
 
+    valid = check_valid_velocity(VtIn,At,Dt,Jm,V0,Xt)
+
     resolved = False
     while(not resolved):
+        if case_switches > 5:
+            raise RecursionError
         if case == 1:
             VtIn = abs(VtIn)
             Dt1 = Dt
@@ -45,56 +50,67 @@ def run_numerical_test(V0,At,Dt,Xt,VtIn,Jm):
 
 
             try:
-                Vtrestrict = case_1_velo(At1,Dt1,V0,Jm,Xt,VtIn)
+                Vtrestrict,At1,Dt1 = case_1_velo(At1,Dt1,V0,Jm,Xt,VtIn)
                 error = False
             except ValueError:  
                 case = 3
-                error = True
+                case_switches += 1
+                if DEBUG:
+                    print("moving to 3")
+                continue
+            except V0Error as e:
+                VtIn = e.Vt
+                At = e.At
+                Dt = e.At
+                case = 2
+                case_switches +=1
+                if DEBUG:
+                    print("moving to 2")
+                continue
+            # if not error:
+            #     accelmodified = False
+            #     if Vtrestrict < (V0 + At1**2/Jm) or Vtrestrict < Dt1**2/Jm :
+            #         if DEBUG:
+            #             print("need to change At")
+            #         accelmodified = True
+            #         if Vtrestrict < (V0 + At1**2/Jm):
+            #             At1 = math.sqrt(Jm*abs(Vtrestrict-V0))
+
+            #         if Vtrestrict < Dt1**2/Jm:
+            #             Dt1 = math.sqrt(Jm*abs(Vtrestrict))
+            #         try:
+            #             Vtrestrict = case_1_velo(At1,Dt1,V0,Jm,Xt,VtIn)
+            #         except ValueError:
+            #             case = 3
+                        
+            #             continue
+            
+            
+
+            if Vtrestrict < 0:
+                case = 3
+                #VtIn = Vtrestrict
+                case_switches += 1
+                if DEBUG:
+                    print ("changed case to 3")
                 continue
 
-            if not error:
-                accelmodified = False
-                if Vtrestrict < (V0 + At1**2/Jm) or Vtrestrict < Dt1**2/Jm :
-                    if DEBUG:
-                        print("need to change At")
-                    accelmodified = True
-                    if Vtrestrict < (V0 + At**2/Jm):
-                        At1 = math.sqrt(Jm*abs(Vtrestrict-V0))
+            Vt1 = min(Vtrestrict,VtIn)
+            if Vt1 < V0: #if max velo is < v0 we also want to pick this up
+                if DEBUG:
+                    print("changed case to 2")
+                case = 2
+                case_switches += 1
+                VtIn = min(Vtrestrict,VtIn)
+                At = min(At1,At)
+                Dt = min(Dt1,Dt)
+                continue
 
-                    if Vtrestrict < Dt**2/Jm:
-                        Dt1 = math.sqrt(Jm*abs(Vtrestrict))
-                    try:
-                        Vtrestrict = case_1_velo(At1,Dt1,V0,Jm,Xt,VtIn)
-                    except ValueError:
-                        case = 3
-                        
-                        continue
-                    
-                if Vtrestrict < 0:
-                    case = 3
-                    #VtIn = Vtrestrict
-                    if DEBUG:
-                        print ("changed case to 3")
-                    continue
-                elif Vtrestrict < V0:
-                    if DEBUG:
-                        print("changed case to 2")
-                    case = 2
-                    VtIn = min(Vtrestrict,VtIn)
-                    At = min(At1,At)
-                    Dt = min(Dt1,Dt)
-                    continue
-
-                if Vtrestrict < VtIn or accelmodified:
-                    Vt1 = Vtrestrict
-                else:
-                    Vt1 = VtIn
-
-                ta1 = -At1/Jm - V0/At1 + Vt1/At1
-                td1= -Dt1/Jm + Vt1/Dt1
-                Ta =ta1
-                Td = td1
-                Dx1 = At1*V0/(2*Jm) + At1*Vt1/(2*Jm) + Dt1*Vt1/(2*Jm) + Vt1**2/(2*Dt1) - V0**2/(2*At1) + Vt1**2/(2*At1)
+            ta1 = -At1/Jm - V0/At1 + Vt1/At1
+            td1= -Dt1/Jm + Vt1/Dt1
+            Ta =ta1
+            Td = td1
+            Dx1 = At1*V0/(2*Jm) + At1*Vt1/(2*Jm) + Dt1*Vt1/(2*Jm) + Vt1**2/(2*Dt1) - V0**2/(2*At1) + Vt1**2/(2*At1)
             resolved = True
         #case 2- Vt < V0, Vt > 0 s1 = -1, s2=-1
         # if VtIn > 0 and VtIn < V0:
@@ -104,9 +120,9 @@ def run_numerical_test(V0,At,Dt,Xt,VtIn,Jm):
             At2 = At
             Dt2 = Dt
 
-
-            ta2 = -At2/Jm + V0/At2 - Vt2/At2
-            td2 = -Dt2/Jm + Vt2/Dt
+            
+            ta2 = -At2/Jm + V0/At2 - VtIn/At2
+            td2 = -Dt2/Jm + VtIn/Dt
             Dx2 = At2*V0/(2*Jm) + At2*VtIn/(2*Jm) + Dt2*VtIn/(2*Jm) + VtIn**2/(2*Dt2) + V0**2/(2*At2) - VtIn**2/(2*At2)
 
             if Dx2 < Xt and not ta2 < 0 and not td2<0:
@@ -114,29 +130,31 @@ def run_numerical_test(V0,At,Dt,Xt,VtIn,Jm):
                 resolved = True
                 continue
             try:
-                Vtrestrict = case_2_velo(At2,Dt2,V0,Jm,Xt,VtIn)
+                Vtrestrict,At2,Dt2 = case_2_velo(At2,Dt2,V0,Jm,Xt,VtIn)
             except ValueError:
                 case = 3
+                case_switches += 1
                 if DEBUG:
                     print("changed to case 3")
                 continue
             
-            if Vtrestrict > (V0 - At2**2/Jm) or Vtrestrict < Dt2**2/Jm:
-                if DEBUG:
-                    print("need to change At")
-                if Vtrestrict > (V0 - At2**2/Jm):
-                    At2 = math.sqrt(Jm*abs(Vtrestrict-V0))
+            # if Vtrestrict > (V0 - At2**2/Jm) or Vtrestrict < Dt2**2/Jm:
+            #     if DEBUG:
+            #         print("need to change At")
+            #     if Vtrestrict > (V0 - At2**2/Jm):
+            #         At2 = math.sqrt(Jm*abs(Vtrestrict-V0))
 
-                if Vtrestrict < Dt2**2/Jm:
-                    Dt2 = math.sqrt(Jm*abs(Vtrestrict))
-                Vtrestrict = case_2_velo(At2,Dt2,V0,Jm,Xt,Vtrestrict)
+            #     if Vtrestrict < Dt2**2/Jm:
+            #         Dt2 = math.sqrt(Jm*abs(Vtrestrict))
+            #     Vtrestrict = case_2_velo(At2,Dt2,V0,Jm,Xt,Vtrestrict)
 
                 
             if Vtrestrict < 0:
                 if DEBUG:
                     print("changed case to 3")
                 case = 3
-                VtIn = min(Vtrestrict,VtIn)
+                case_switches += 1
+                VtIn = min(abs(Vtrestrict),VtIn)
                 At = min(At2,At)
                 Dt = min(Dt2,Dt)
                 continue
@@ -144,7 +162,7 @@ def run_numerical_test(V0,At,Dt,Xt,VtIn,Jm):
 
             Vt2 = Vtrestrict
             ta2 = -At2/Jm + V0/At2 - Vt2/At2
-            td2 = -Dt2/Jm + Vt2/Dt
+            td2 = -Dt2/Jm + Vt2/Dt2
             Dx2 = At2*V0/(2*Jm) + At2*Vt2/(2*Jm) + Dt2*Vt2/(2*Jm) + Vt2**2/(2*Dt2) + V0**2/(2*At2) - Vt2**2/(2*At2)
 
 
@@ -167,27 +185,22 @@ def run_numerical_test(V0,At,Dt,Xt,VtIn,Jm):
                 resolved = True
                 continue
             try:
-                Vtrestrict = case_3_velo(At3,Dt3,V0,Jm,Xt,VtIn)
+                Vtrestrict,At3,Dt3 = case_3_velo(At3,Dt3,V0,Jm,Xt,VtIn)
             except ValueError:
                 case = 1
-                continue
-
-            if Vtrestrict > (V0 - At3**2/Jm) or Vtrestrict > -Dt3**2/Jm:
+                case_switches += 1
                 if DEBUG:
-                    print("need to change accels")
-                if Vtrestrict > (V0 - At3**2/Jm):
-                    At3 = math.sqrt(Jm*abs(Vtrestrict-V0))
-
-                if Vtrestrict > -Dt3**2/Jm:
-                    Dt3 = math.sqrt(Jm*abs(Vtrestrict))
-                try:
-                    Vtrestrict = case_3_velo(At3,Dt3,V0,Jm,Xt,Vtrestrict)
-                except ValueError:
-                    case = 1
-                    
-                    continue
-                #print ("stuck in here maybe")
-
+                    print("moving to 1")
+                continue
+            except V0Error as e:
+                VtIn = e.Vt
+                At = e.At
+                Dt = e.At
+                case = 4 
+                case_switches +=1
+                if DEBUG:
+                    print("moving to 4")
+                continue
             if Vtrestrict > VtIn:
                 Vt3 = Vtrestrict
             else:
@@ -199,23 +212,30 @@ def run_numerical_test(V0,At,Dt,Xt,VtIn,Jm):
                     if DEBUG:
                         print("changed case to 1")
                     case = 1
+                    case_switches += 1
                     continue
                 if DEBUG:
                     print("changed case to 4")
                 VtIn = min(Vt3,VtIn)
                 At = min(At3,At)
                 Dt = min(Dt3,Dt)
+                case_switches += 1
                 case=4
                 # VtIn = Vt3
                 continue
             
-            ta3 = -At3/Jm + V0/At3 - Vt3/At3
-            td3 = -Dt3/Jm - Vt3/Dt3
-
-            Ta =ta3
-            Td = td3
-            Dx3 = At*V0/(2*Jm) + At*Vt3/(2*Jm) + Dt*Vt3/(2*Jm) - Vt3**2/(2*Dt) + V0**2/(2*At) - Vt3**2/(2*At)
-            resolved = True
+            if At3 == 0:
+                ta3 =0
+                td3 = -Dt3/Jm - Vt3/Dt3
+                Dx3 = (Dt**2 - math.sqrt(Dt*(Dt**3 - 8*Jm**2*Xt)))/(2*Jm)
+                resolved = True
+            else:
+                ta3 = -At3/Jm + V0/At3 - Vt3/At3
+                td3 = -Dt3/Jm - Vt3/Dt3
+                Ta =ta3
+                Td = td3
+                Dx3 = At3*V0/(2*Jm) + At3*Vt3/(2*Jm) + Dt3*Vt3/(2*Jm) - Vt3**2/(2*Dt3) + V0**2/(2*At3) - Vt3**2/(2*At3)
+                resolved = True
         #case 4- Vt > V0, Vt < 0 s1 = 1, s2 = 1
         # if Vt > V0 and Vt < 0:
         if case == 4:
@@ -237,26 +257,27 @@ def run_numerical_test(V0,At,Dt,Xt,VtIn,Jm):
                 continue
 
             try:
-                Vtrestrict = case_4_velo(At4,Dt4,V0,Jm,Xt,VtIn)
+                Vtrestrict,At4,Dt4 = case_4_velo(At4,Dt4,V0,Jm,Xt,VtIn)
             except ValueError:
                 case = 1
-                
+                case_switches += 1
                 continue
 
 
-            if Vtrestrict < (V0 + At4**2/Jm) or Vtrestrict > -Dt4**2/Jm:
-                if DEBUG:
-                    print("need to change accels")
-                if Vtrestrict < (V0 + At4**2/Jm):
-                    At4 = math.sqrt(Jm*abs(Vtrestrict-V0))
+            # if Vtrestrict < (V0 + At4**2/Jm) or Vtrestrict > -Dt4**2/Jm:
+            #     if DEBUG:
+            #         print("need to change accels")
+            #     if Vtrestrict < (V0 + At4**2/Jm):
+            #         At4 = math.sqrt(Jm*abs(Vtrestrict-V0))
 
-                if Vtrestrict > -Dt4**2/Jm:
-                    Dt4 = math.sqrt(Jm*abs(Vtrestrict))
-                Vtrestrict = case_4_velo(At4,Dt4,V0,Jm,Xt,Vtrestrict)
+            #     if Vtrestrict > -Dt4**2/Jm:
+            #         Dt4 = math.sqrt(Jm*abs(Vtrestrict))
+            #     Vtrestrict = case_4_velo(At4,Dt4,V0,Jm,Xt,Vtrestrict)
 
             
             if Vtrestrict > 0:
                 case = 1
+                case_switches += 1
                 if DEBUG:
                     print("moved to case 1")
                 VtIn = min(Vtrestrict,VtIn)
